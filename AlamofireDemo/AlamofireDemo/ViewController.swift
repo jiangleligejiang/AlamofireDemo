@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Alamofire
 
 class ViewController: UIViewController {
     
@@ -20,7 +21,15 @@ class ViewController: UIViewController {
             if let error = error {
                 print("fetch films error: " + error.localizedDescription)
             } else {
-                
+                print("fetch films success: \(String(describing: films))")
+            }
+        }
+        
+        fetchFilmsByAlamofire { (error, films) in
+            if let error = error {
+                print("fetch films by alamofire error: " + error.localizedDescription)
+            } else {
+                print("fetch films by alamofire success: \(String(describing: films))")
             }
         }
     }
@@ -30,34 +39,64 @@ class ViewController: UIViewController {
 extension ViewController {
     
     typealias JSONDictionary = [String : Any]
-    
-    func fetchFilms(_ completion: @escaping(NSError?, [Film]?) -> Void) {
+    // iOS 13 GET 请求不能通过把参数设置到httpBody中：https://stackoverflow.com/questions/56955595/1103-error-domain-nsurlerrordomain-code-1103-resource-exceeds-maximum-size-i
+    func fetchFilms(_ completion: @escaping(Error?, [Film]?) -> Void) {
+        
+        /*
         if let url = URL(string: Self.FILM_URL) {
-            let request = URLRequest(url: url)
-            let session = URLSession.shared
-            let dataTask = session.dataTask(with: request) { (data, response, error) in
+            var request = URLRequest(url: url)
+            let parameters: [String : String] = ["search" : "Hope"]
+            request.httpBody = try? JSONSerialization.data(withJSONObject: parameters, options: .prettyPrinted)
+            let dataTask = URLSession.shared.dataTask(with: request) { (data, response, error) in
                 if let error = error {
-                    print("fetch films error: " + error.localizedDescription)
+                    completion(error, nil);
                 } else if let data = data,
                     let response = response as? HTTPURLResponse,
                     response.statusCode == 200 {
-                    
                     do {
-                        if let rsp = try JSONSerialization.jsonObject(with: data, options: []) as? JSONDictionary,
-                            let result = rsp["results"] as? Array<Any>,
-                            result.count > 0 {
-                            let decoder = JSONDecoder()
-                            let jsondata = try JSONSerialization.data(withJSONObject: result, options: [])
-                            let films = try decoder.decode([Film].self, from: jsondata)
-                            completion(nil, films)
-                        }
-                        
+                        let decoder = JSONDecoder()
+                        let films = try decoder.decode(Films.self, from: data)
+                        completion(nil, films.all)
                     } catch let parseError as NSError {
-                        print("parse error: " + parseError.localizedDescription)
+                        completion(parseError, nil);
                     }
                 }
             }
             dataTask.resume()
+        }
+        */
+        
+        if var urlComponents = URLComponents(string: Self.FILM_URL) {
+            urlComponents.queryItems = [URLQueryItem(name: "search", value: "Hope")]
+            if let url = urlComponents.url {
+                let request = URLRequest(url: url)
+                let dataTask = URLSession.shared.dataTask(with: request) { (data, response, error) in
+                    if let error = error {
+                        completion(error, nil);
+                    } else if let data = data,
+                        let response = response as? HTTPURLResponse,
+                        response.statusCode == 200 {
+                        do {
+                            let decoder = JSONDecoder()
+                            let films = try decoder.decode(Films.self, from: data)
+                            completion(nil, films.all)
+                        } catch let parseError as NSError {
+                            completion(parseError, nil);
+                        }
+                    }
+                }
+                dataTask.resume()
+            }
+        }
+    }
+    
+    func fetchFilmsByAlamofire(_ completion: @escaping(Error?, [Film]?) -> Void) {
+        AF.request(Self.FILM_URL, parameters: ["search" : "Hope"]).responseDecodable(of: Films.self) { response in
+            if let films = response.value {
+                completion(nil, films.all)
+            } else {
+                completion(response.error, nil)
+            }
         }
     }
     
