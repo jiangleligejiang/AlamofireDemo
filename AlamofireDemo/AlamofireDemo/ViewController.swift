@@ -12,6 +12,7 @@ import Alamofire
 class ViewController: UIViewController {
     
     static let FILM_URL = "https://swapi.dev/api/films"
+    static let POST_URL = "http://httpbin.org/anything"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,6 +31,22 @@ class ViewController: UIViewController {
                 print("fetch films by alamofire error: " + error.localizedDescription)
             } else {
                 print("fetch films by alamofire success: \(String(describing: films))")
+            }
+        }
+        
+        postFormData { (error, result) in
+            if let error = error {
+                print("post form data error: \(error.localizedDescription)")
+            } else {
+                print("post form data success: \(String(describing: dump(result)))")
+            }
+        }
+        
+        postFormDataByAlamofire { (error, result) in
+            if let error = error {
+                print("post form data by alamofire error: \(error.localizedDescription)")
+            } else {
+                print("post form data by alamofire success: \(String(describing: dump(result)))")
             }
         }
     }
@@ -102,3 +119,43 @@ extension ViewController {
     
 }
 
+extension ViewController {
+    
+    func postFormData(_ completion: @escaping(Error?, Dictionary<String, Any>?) -> Void) {
+        if let url = URL(string: Self.POST_URL) {
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            let postDict: [String : Any] = ["name" : "jams", "age" : 24]
+            guard let postData = try? JSONSerialization.data(withJSONObject: postDict, options: []) else {
+                return
+            }
+            request.httpBody = postData
+            let dataTask = URLSession.shared.dataTask(with: request) { (data, response, error) in
+                if let error = error {
+                    completion(error, nil)
+                } else if let data = data,
+                let response = response as? HTTPURLResponse,
+                    response.statusCode == 200 {
+                    do {
+                        let dict = try JSONSerialization.jsonObject(with: data, options: []) as? Dictionary<String, Any>
+                        completion(nil, dict)
+                    } catch  let parseError  {
+                        completion(parseError, nil)
+                    }
+                }
+            }
+            dataTask.resume()
+        }
+    }
+    
+    func postFormDataByAlamofire(_ completion: @escaping(Error?, Dictionary<String, Any>?) -> Void) {
+        AF.request(Self.POST_URL, method: .post, parameters: ["name" : "jams", "age" : 24]).responseJSON { (response) in
+            if let response = response.value as? Dictionary<String, Any> {
+                completion(nil, response)
+            } else {
+                completion(response.error, nil)
+            }
+        }
+    }
+    
+}
