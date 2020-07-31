@@ -13,11 +13,13 @@ class ViewController: UIViewController {
     
     static let FILM_URL = "https://swapi.dev/api/films"
     static let POST_URL = "http://httpbin.org/anything"
+    static let UPLOAD_URL = "https://catbox.moe/user/api.php"
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         
+        /*
         fetchFilms { (error, films) in
             if let error = error {
                 print("fetch films error: " + error.localizedDescription)
@@ -47,6 +49,14 @@ class ViewController: UIViewController {
                 print("post form data by alamofire error: \(error.localizedDescription)")
             } else {
                 print("post form data by alamofire success: \(String(describing: dump(result)))")
+            }
+        }
+        */
+        uploadImage { (error, result) in
+            if let error = error {
+                print("upload image error: \(error.localizedDescription)")
+            } else {
+                print("upload image success: \(result!))")
             }
         }
     }
@@ -156,6 +166,49 @@ extension ViewController {
                 completion(response.error, nil)
             }
         }
+    }
+    
+}
+
+extension ViewController {
+    
+    func uploadImage(_ completion: @escaping(Error?, String?) -> Void) {
+        guard let image = UIImage.init(named: "test"), let imageData = image.pngData(), let url = URL(string: Self.UPLOAD_URL) else {
+            return
+        }
+        
+        let boundary = UUID().uuidString
+                
+        var request = URLRequest(url: url)
+        request.method = .post
+        request.setValue("multipart/form-data;boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        let fieldName = "reqtype"
+        let fieldValue = "fileupload"
+
+        var data = Data()
+        data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data;name=\"\(fieldName)\"\r\n\r\n".data(using: .utf8)!)
+        data.append("\(fieldValue)".data(using: .utf8)!)
+        
+        let filename = "test.png"
+
+        data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data;name=\"fileToUpload\";filename=\"\(filename)\"\r\n\r\n".data(using: .utf8)!)
+        data.append("Content-Type: image/png\r\n\r\n".data(using: .utf8)!)
+        data.append(imageData)
+        data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        
+        let uploadTask = URLSession.shared.uploadTask(with: request, from: data) { (data, response, error) in
+            if let error = error {
+                completion(error, nil)
+            } else if let data = data, let rspString = String(data: data, encoding: .utf8) {
+                completion(nil, rspString)
+            }
+        
+        }
+        uploadTask.resume()
     }
     
 }
