@@ -59,6 +59,14 @@ class ViewController: UIViewController {
                 print("upload image success: \(result!))")
             }
         }
+        
+        uploadImageByAlamofire { (error, result) in
+            if let error = error {
+                print("upload image by alamofire error: \(error.localizedDescription)")
+            } else {
+                print("upload image by alamofire success: \(result!))")
+            }
+        }
     }
     
 }
@@ -173,7 +181,7 @@ extension ViewController {
 extension ViewController {
     
     func uploadImage(_ completion: @escaping(Error?, String?) -> Void) {
-        guard let image = UIImage.init(named: "test"), let imageData = image.pngData(), let url = URL(string: Self.UPLOAD_URL) else {
+        guard let image = UIImage.init(named: "test1"), let imageData = image.pngData(), let url = URL(string: Self.UPLOAD_URL) else {
             return
         }
         
@@ -191,10 +199,10 @@ extension ViewController {
         data.append("Content-Disposition: form-data;name=\"\(fieldName)\"\r\n\r\n".data(using: .utf8)!)
         data.append("\(fieldValue)".data(using: .utf8)!)
         
-        let filename = "test.png"
+        let filename = "test1.png"
 
         data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
-        data.append("Content-Disposition: form-data;name=\"fileToUpload\";filename=\"\(filename)\"\r\n\r\n".data(using: .utf8)!)
+        data.append("Content-Disposition: form-data;name=\"fileToUpload\";filename=\"\(filename)\"\r\n".data(using: .utf8)!)
         data.append("Content-Type: image/png\r\n\r\n".data(using: .utf8)!)
         data.append(imageData)
         data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
@@ -209,6 +217,23 @@ extension ViewController {
         
         }
         uploadTask.resume()
+    }
+    
+    func uploadImageByAlamofire(_ completion: @escaping(Error?, String?) -> Void) {
+        guard let image = UIImage.init(named: "test1"), let imageData = image.pngData() else {
+            return
+        }
+        
+        AF.upload(multipartFormData: { (data) in
+            data.append("fileupload".data(using: .utf8)!, withName: "reqtype")
+            data.append(imageData, withName: "fileToUpload", fileName: "test1.png", mimeType: "image/png")
+        }, to: Self.UPLOAD_URL).response { (data) in
+            if let data = data.data, let result = String(data: data, encoding: .utf8) {
+                completion(nil, result)
+            } else {
+                completion(data.error, nil)
+            }
+        }
     }
     
 }
