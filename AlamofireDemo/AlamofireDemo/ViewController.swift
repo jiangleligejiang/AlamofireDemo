@@ -14,10 +14,17 @@ class ViewController: UIViewController {
     static let FILM_URL = "https://swapi.dev/api/films"
     static let POST_URL = "http://httpbin.org/anything"
     static let UPLOAD_URL = "https://catbox.moe/user/api.php"
+    static let DOWNLOAD_URL = "https://files.catbox.moe/8w5gw0.png"
+    
+    var imageView: UIImageView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        
+        imageView = UIImageView.init(frame: CGRect(x: 20, y: 100, width: self.view.bounds.size.width - 40, height: self.view.bounds.size.height - 100))
+        imageView.contentMode = .scaleAspectFit
+        self.view.addSubview(imageView)
         
         /*
         fetchFilms { (error, films) in
@@ -67,7 +74,6 @@ class ViewController: UIViewController {
                 print("upload image by alamofire success: \(result!))")
             }
         }
-         */
         
         uploadProgressiveImage { (error, result) in
             if let error = error {
@@ -84,6 +90,17 @@ class ViewController: UIViewController {
                 print("upload progressive image by alamofire error: \(error.localizedDescription)")
             } else {
                 print("upload progressive image by alamofire success: \(result!))")
+            }
+        }
+ */
+        //self.downloadImage()
+        
+        downloadImageByAlamofire { (error, image) in
+            if let image = image {
+                self.imageView.image = image
+                print("download image by alamofire success")
+            } else if let error = error {
+                print("download image by alamofire error: \(error)")
             }
         }
     }
@@ -320,6 +337,61 @@ extension ViewController : URLSessionTaskDelegate {
                 completion(nil, nil, result)
             } else {
                 completion(data.error, nil, nil)
+            }
+        }
+    }
+    
+}
+
+
+extension ViewController : URLSessionDownloadDelegate {
+    
+    func downloadImage() {
+        guard let url = URL(string: Self.DOWNLOAD_URL) else {
+            return
+        }
+        
+        let session = URLSession.init(configuration: .default, delegate: self, delegateQueue: nil)
+        let request = URLRequest(url: url)
+        let downloadTask = session.downloadTask(with: request)
+        downloadTask.resume()
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        print("location:\(location.path)")
+        let dstPath = NSHomeDirectory() + "/Documents/test.png"
+
+        do {
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: dstPath) {
+                try fileManager.removeItem(atPath: dstPath)
+            }
+            try fileManager.moveItem(atPath: location.path, toPath: dstPath)
+        } catch let error {
+            print("move file error: \(error)")
+        }
+        
+        DispatchQueue.main.async {
+            self.imageView.image = UIImage.init(contentsOfFile: dstPath)
+        }
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        let progress = Int(Float(totalBytesWritten) / Float(totalBytesExpectedToWrite) * 100)
+        print("download progressive image: \(progress)%")
+    }
+    
+    func downloadImageByAlamofire(_ completion:@escaping(Error?, UIImage?) -> Void) {
+        
+        AF.download(Self.DOWNLOAD_URL, to: .some(DownloadRequest.suggestedDownloadDestination())).downloadProgress(closure: { (progress) in
+            let progress = Int(Float(progress.completedUnitCount) / Float(progress.totalUnitCount) * 100)
+            print("download progressive image by alamofire: \(progress)%")
+        }).response { (response) in
+            if let fileURL = response.fileURL {
+                let image = UIImage.init(contentsOfFile: fileURL.path)
+                completion(nil, image)
+            } else {
+                completion(response.error, nil)
             }
         }
     }
